@@ -1,0 +1,111 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  GUEST
+}
+
+enum AuthStatus {
+  PENDING
+  CONFIRMED
+  EXPIRED
+}
+
+model User {
+  id           String        @id @default(cuid())
+  telegramId   String        @unique
+  role        Role          @default(GUEST)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  authRequests AuthRequest[]
+  profile    Profile?
+}
+
+model Profile {
+  id        String   @id @default(cuid())
+  name      String
+  title     String?
+  bio       String?  @db.Text
+  avatar    String?
+  email     String?
+  github    String?
+  linkedin  String?
+  twitter   String?
+  phone     String?
+  location  String?
+  isVisible Boolean  @default(true)
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Project {
+  id          String   @id @default(cuid())
+  title       String
+  description String?  @db.Text
+  url         String?
+  repoUrl     String?
+  image       String?
+  tags       String[]
+  isFeatured Boolean  @default(false)
+  sortOrder   Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model Experience {
+  id          String   @id @default(cuid())
+  company     String
+  position    String
+  description String?  @db.Text
+  location    String?
+  startDate   DateTime
+  endDate     DateTime?
+  isCurrent   Boolean  @default(false)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Skill {
+  id        String   @id @default(cuid())
+  name      String
+  category  String
+  icon      String?
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Education {
+  id          String   @id @default(cuid())
+  institution String
+  degree     String
+  field      String?
+  startDate  DateTime
+  endDate    DateTime?
+  isCurrent  Boolean  @default(false)
+  sortOrder  Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model AuthRequest {
+  id        String     @id @default(cuid())
+  code      String
+  status    AuthStatus @default(PENDING)
+  userId    String
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime   @default(now())
+
+  @@index([userId, status])
+}
