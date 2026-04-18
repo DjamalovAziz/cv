@@ -33,6 +33,7 @@ export async function POST(request: NextRequest) {
     }
 
     const data = await request.json();
+    console.log("Project POST data:", JSON.stringify(data, null, 2));
 
     const tags = typeof data.tags === "string"
       ? data.tags.split(",").map((t: string) => t.trim()).filter(Boolean)
@@ -52,6 +53,7 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    console.log("Project created:", project.id);
     return NextResponse.json(project);
   } catch (error) {
     console.error("Project POST error:", error);
