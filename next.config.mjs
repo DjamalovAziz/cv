@@ -9,6 +9,10 @@ const nextConfig = {
       },
     ],
   },
+  webpack: (config, { isServer }) => {
+    config.resolve.alias["~"] = "./src";
+    return config;
+  },
 };
 
 export default nextConfig;
