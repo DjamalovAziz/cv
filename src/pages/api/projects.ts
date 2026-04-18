@@ -29,7 +29,12 @@ export async function POST(request: NextRequest) {
 
   const data = await request.json();
 
-  const project = await db.project.create({ data });
+  const project = await db.project.create({
+    data: {
+      ...data,
+      tags: data.tags.split(",").map((t: string) => t.trim()).filter(Boolean),
+    },
+  });
 
   return NextResponse.json(project);
 }

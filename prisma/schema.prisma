@@ -55,6 +55,7 @@ model Project {
   repoUrl     String?
   image       String?
   tags       String[]
+  userRole    String?  // Роль пользователя в этом проекте (например: "Frontend Developer", "Project Manager")
   isFeatured Boolean  @default(false)
   sortOrder   Int      @default(0)
   createdAt  DateTime @default(now())

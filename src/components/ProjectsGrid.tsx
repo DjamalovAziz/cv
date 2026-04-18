@@ -9,6 +9,7 @@ interface Project {
   repoUrl: string | null;
   image: string | null;
   tags: string[];
+  userRole: string | null;
 }
 
 interface ProjectsGridProps {
@@ -78,9 +79,14 @@ export function ProjectsGrid({ projects }: ProjectsGridProps) {
                     {tag}
                   </span>
                 ))}
-              </div>
-              <div className="flex gap-4">
-                {project.url && (
+               </div>
+               <div className="flex gap-4">
+                 {project.userRole && (
+                   <span className="text-sm text-gray-500">
+                     {project.userRole}
+                   </span>
+                 )}
+                 {project.url && (
                   <a
                     href={project.url}
                     target="_blank"

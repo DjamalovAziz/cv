@@ -15,15 +15,16 @@ interface ProfileFormData {
   location?: string;
 }
 
-interface ProjectFormData {
-  title: string;
-  description?: string;
-  url?: string;
-  repoUrl?: string;
-  image?: string;
-  tags: string;
-  isFeatured: boolean;
-}
+  interface ProjectFormData {
+    title: string;
+    description?: string;
+    url?: string;
+    repoUrl?: string;
+    image?: string;
+    tags: string;
+    userRole?: string;
+    isFeatured: boolean;
+  }
 
 interface SkillFormData {
   name: string;
@@ -57,7 +58,7 @@ export default function AdminDashboard({
   const [experience, setExperience] = useState(initialExperience);
 
   const profileForm = useForm<ProfileFormData>({ defaultValues: initialProfile });
-  const projectForm = useForm<ProjectFormData>({ defaultValues: { tags: "", isFeatured: false } });
+  const projectForm = useForm<ProjectFormData>({ defaultValues: { tags: "", isFeatured: false, description: "", userRole: "" } });
   const skillForm = useForm<SkillFormData>({ defaultValues: { category: "Technical" } });
   const experienceForm = useForm<ExperienceFormData>({ defaultValues: { isCurrent: false } });
 
@@ -74,25 +75,47 @@ export default function AdminDashboard({
   }
 
   const handleProfileSubmit = async (data: ProfileFormData) => {
-    await fetch("/api/profile", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    });
+    try {
+      const res = await fetch("/api/profile", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (res.ok) {
+        alert("Profile saved successfully!");
+      } else {
+        const error = await res.json();
+        console.error("Profile error:", error);
+        alert("Failed to save profile: " + (error.error || "Unknown error"));
+      }
+    } catch (err) {
+      console.error("Profile submit error:", err);
+      alert("Failed to save profile");
+    }
   };
 
   const handleProjectSubmit = async (data: ProjectFormData) => {
-    const res = await fetch("/api/projects", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        ...data,
-        tags: data.tags.split(",").map((t: string) => t.trim()).filter(Boolean),
-      }),
-    });
-    if (res.ok) {
-      setProjects([...projects, await res.json()]);
-      projectForm.reset({ tags: "", isFeatured: false });
+    try {
+      const res = await fetch("/api/projects", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...data,
+          tags: data.tags.split(",").map((t: string) => t.trim()).filter(Boolean),
+        }),
+      });
+      if (res.ok) {
+        const newProject = await res.json();
+        setProjects([...projects, newProject]);
+        projectForm.reset({ tags: "", isFeatured: false });
+      } else {
+        const error = await res.json();
+        console.error("Project error:", error);
+        alert("Failed to add project: " + (error.error || "Unknown error"));
+      }
+    } catch (err) {
+      console.error("Project submit error:", err);
+      alert("Failed to add project");
     }
   };
 
@@ -102,14 +125,24 @@ export default function AdminDashboard({
   };
 
   const handleSkillSubmit = async (data: SkillFormData) => {
-    const res = await fetch("/api/skills", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    });
-    if (res.ok) {
-      setSkills([...skills, await res.json()]);
-      skillForm.reset({ category: "Technical" });
+    try {
+      const res = await fetch("/api/skills", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (res.ok) {
+        const newSkill = await res.json();
+        setSkills([...skills, newSkill]);
+        skillForm.reset({ category: "Technical" });
+      } else {
+        const error = await res.json();
+        console.error("Skill error:", error);
+        alert("Failed to add skill: " + (error.error || "Unknown error"));
+      }
+    } catch (err) {
+      console.error("Skill submit error:", err);
+      alert("Failed to add skill");
     }
   };
 
@@ -119,18 +152,28 @@ export default function AdminDashboard({
   };
 
   const handleExperienceSubmit = async (data: ExperienceFormData) => {
-    const res = await fetch("/api/experience", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        ...data,
-        startDate: new Date(data.startDate),
-        endDate: data.endDate ? new Date(data.endDate) : undefined,
-      }),
-    });
-    if (res.ok) {
-      setExperience([...experience, await res.json()]);
-      experienceForm.reset({ isCurrent: false });
+    try {
+      const res = await fetch("/api/experience", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...data,
+          startDate: new Date(data.startDate),
+          endDate: data.endDate ? new Date(data.endDate) : undefined,
+        }),
+      });
+      if (res.ok) {
+        const newExp = await res.json();
+        setExperience([...experience, newExp]);
+        experienceForm.reset({ isCurrent: false });
+      } else {
+        const error = await res.json();
+        console.error("Experience error:", error);
+        alert("Failed to add experience: " + (error.error || "Unknown error"));
+      }
+    } catch (err) {
+      console.error("Experience submit error:", err);
+      alert("Failed to add experience");
     }
   };
 
@@ -254,13 +297,14 @@ export default function AdminDashboard({
                       required
                     />
                   </div>
-                  <div>
-                    <label className="block text-sm mb-2">Description</label>
-                    <textarea
-                      {...projectForm.register("description")}
-                      className="w-full px-4 py-2 bg-gray-900 border border-gray-800 rounded"
-                    />
-                  </div>
+                   <div>
+                     <label className="block text-sm mb-2">Description</label>
+                     <textarea
+                       {...projectForm.register("description")}
+                       rows={4}
+                       className="w-full px-4 py-2 bg-gray-900 border border-gray-800 rounded resize-y min-h-[100px]"
+                     />
+                   </div>
                   <div>
                     <label className="block text-sm mb-2">URL</label>
                     <input
@@ -285,20 +329,28 @@ export default function AdminDashboard({
                       className="w-full px-4 py-2 bg-gray-900 border border-gray-800 rounded"
                     />
                   </div>
-                  <div>
-                    <label className="block text-sm mb-2">Tags (comma separated)</label>
-                    <input
-                      {...projectForm.register("tags")}
-                      placeholder="react,typescript,nextjs"
-                      className="w-full px-4 py-2 bg-gray-900 border border-gray-800 rounded"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm mb-2">
-                      <input type="checkbox" {...projectForm.register("isFeatured")} className="mr-2" />
-                      Featured
-                    </label>
-                  </div>
+                   <div>
+                     <label className="block text-sm mb-2">Tags (comma separated)</label>
+                     <input
+                       {...projectForm.register("tags")}
+                       placeholder="react,typescript,nextjs"
+                       className="w-full px-4 py-2 bg-gray-900 border border-gray-800 rounded"
+                     />
+                   </div>
+                   <div>
+                     <label className="block text-sm mb-2">Your Role in this Project</label>
+                     <input
+                       {...projectForm.register("userRole")}
+                       placeholder="e.g., Frontend Developer, Project Manager, Founder"
+                       className="w-full px-4 py-2 bg-gray-900 border border-gray-800 rounded"
+                     />
+                   </div>
+                   <div>
+                     <label className="block text-sm mb-2">
+                       <input type="checkbox" {...projectForm.register("isFeatured")} className="mr-2" />
+                       Featured
+                     </label>
+                   </div>
                   <button
                     type="submit"
                     className="px-6 py-2 bg-blue-600 rounded hover:bg-blue-700 transition-colors"
@@ -307,15 +359,20 @@ export default function AdminDashboard({
                   </button>
                 </form>
 
-                <div className="space-y-2">
-                  {projects.map((project) => (
-                    <div
-                      key={project.id}
-                      className="flex items-center justify-between p-4 bg-gray-900 border border-gray-800 rounded"
-                    >
-                      <span>{project.title}</span>
-                      <button
-                        onClick={() => handleDeleteProject(project.id)}
+                 <div className="space-y-2">
+                   {projects.map((project) => (
+                     <div
+                       key={project.id}
+                       className="flex items-center justify-between p-4 bg-gray-900 border border-gray-800 rounded"
+                     >
+                       <div>
+                         <span className="font-medium">{project.title}</span>
+                         {project.userRole && (
+                           <span className="ml-3 text-sm text-gray-500">({project.userRole})</span>
+                         )}
+                       </div>
+                       <button
+                         onClick={() => handleDeleteProject(project.id)}
                         className="px-4 py-2 bg-red-600 rounded hover:bg-red-700 transition-colors"
                       >
                         Delete

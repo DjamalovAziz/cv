@@ -27,6 +27,7 @@ interface Project {
   repoUrl: string | null;
   image: string | null;
   tags: string[];
+  userRole: string | null;
 }
 
 interface Skill {
