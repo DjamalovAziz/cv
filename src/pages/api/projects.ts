@@ -20,10 +20,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error("Project GET error:", error);
     const message = error instanceof Error ? error.message : "Unknown error";
-    return NextResponse.json(
-      { error: "Failed to fetch projects", message },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Failed to fetch projects", message }, { status: 500 });
   }
 }
 
@@ -37,11 +34,10 @@ export async function POST(request: NextRequest) {
 
     const data = await request.json();
 
-    const tags = Array.isArray(data.tags)
-      ? data.tags
-      : typeof data.tags === "string"
+    // Простая обработка tags
+    const tags = typeof data.tags === "string"
       ? data.tags.split(",").map((t: string) => t.trim()).filter(Boolean)
-      : [];
+      : Array.isArray(data.tags) ? data.tags : [];
 
     const project = await db.project.create({
       data: {
@@ -51,8 +47,8 @@ export async function POST(request: NextRequest) {
         repoUrl: data.repoUrl || null,
         image: data.image || null,
         tags,
-        userRole: data.userRole || null,
         isFeatured: data.isFeatured || false,
+        sortOrder: data.sortOrder || 0,
       },
     });
 
@@ -60,10 +56,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("Project POST error:", error);
     const message = error instanceof Error ? error.message : "Unknown error";
-    return NextResponse.json(
-      { error: "Failed to create project", message },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Failed to create project", message, stack: error instanceof Error ? error.stack : undefined }, { status: 500 });
   }
 }
 
@@ -88,10 +81,7 @@ export async function DELETE(request: NextRequest) {
   } catch (error) {
     console.error("Project DELETE error:", error);
     const message = error instanceof Error ? error.message : "Unknown error";
-    return NextResponse.json(
-      { error: "Failed to delete project", message },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Failed to delete project", message }, { status: 500 });
   }
 }
 

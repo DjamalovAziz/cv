@@ -22,7 +22,6 @@ interface ProfileFormData {
     repoUrl?: string;
     image?: string;
     tags: string;
-    userRole?: string;
     isFeatured: boolean;
   }
 
@@ -58,7 +57,7 @@ export default function AdminDashboard({
   const [experience, setExperience] = useState(initialExperience);
 
   const profileForm = useForm<ProfileFormData>({ defaultValues: initialProfile });
-  const projectForm = useForm<ProjectFormData>({ defaultValues: { tags: "", isFeatured: false, description: "", userRole: "" } });
+  const projectForm = useForm<ProjectFormData>({ defaultValues: { tags: "", isFeatured: false, description: "" } });
   const skillForm = useForm<SkillFormData>({ defaultValues: { category: "Technical" } });
   const experienceForm = useForm<ExperienceFormData>({ defaultValues: { isCurrent: false } });
 
@@ -334,14 +333,6 @@ export default function AdminDashboard({
                      <input
                        {...projectForm.register("tags")}
                        placeholder="react,typescript,nextjs"
-                       className="w-full px-4 py-2 bg-gray-900 border border-gray-800 rounded"
-                     />
-                   </div>
-                   <div>
-                     <label className="block text-sm mb-2">Your Role in this Project</label>
-                     <input
-                       {...projectForm.register("userRole")}
-                       placeholder="e.g., Frontend Developer, Project Manager, Founder"
                        className="w-full px-4 py-2 bg-gray-900 border border-gray-800 rounded"
                      />
                    </div>
