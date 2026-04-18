@@ -3,13 +3,11 @@ const nextConfig = {
   output: "standalone",
   images: {
     remotePatterns: [
-      {
-        protocol: "https",
-        hostname: "**",
-      },
+      { protocol: "https", hostname: "**" },
+      { protocol: "http", hostname: "**" },
     ],
   },
-  webpack: (config, { isServer }) => {
+  webpack: (config) => {
     config.resolve.alias["~"] = "./src";
     return config;
   },

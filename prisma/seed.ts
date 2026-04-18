@@ -3,7 +3,7 @@ import { PrismaClient, Role } from "@prisma/client";
 const prisma = new PrismaClient();
 
 async function main() {
-  const telegramAdminId = process.env.TELEGRAM_ADMIN_ID || "123456789";
+  const telegramAdminId = process.env.TELEGRAM_ADMIN_IDS?.split(",")[0] || "123456789";
 
   const admin = await prisma.user.upsert({
     where: { telegramId: telegramAdminId },

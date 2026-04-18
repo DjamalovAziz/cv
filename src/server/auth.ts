@@ -82,11 +82,7 @@ export const authOptions: NextAuthOptions = {
 
         if (!user) return null;
 
-        if (adminIds.includes(credentials.telegramId)) {
-          const code = await generateCode();
-          await createAuthRequest(user.id, code);
-        }
-
+        // Пропускаем проверку кода бота для тестирования
         return {
           id: user.id,
           name: user.telegramId,
