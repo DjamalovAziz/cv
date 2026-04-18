@@ -418,19 +418,14 @@ export default function AdminDashboard({
                 </form>
 
                  <div className="space-y-2">
-                   {projects.map((project) => (
+                   {skills.map((skill) => (
                      <div
-                       key={project.id}
+                       key={skill.id}
                        className="flex items-center justify-between p-4 bg-gray-900 border border-gray-800 rounded"
                      >
-                       <div>
-                         <span className="font-medium">{project.title}</span>
-                         {project.userRole && (
-                           <span className="ml-3 text-sm text-gray-500">({project.userRole})</span>
-                         )}
-                       </div>
+                       <span>{skill.name}</span>
                        <button
-                         onClick={() => handleDeleteProject(project.id)}
+                         onClick={() => handleDeleteSkill(skill.id)}
                          className="px-4 py-2 bg-red-600 rounded hover:bg-red-700 transition-colors"
                        >
                          Delete
@@ -438,10 +433,8 @@ export default function AdminDashboard({
                      </div>
                    ))}
                  </div>
-                  ))}
-                </div>
-              </div>
-            )}
+               </div>
+             )}
 
             {activeTab === "experience" && (
               <div className="space-y-8">
