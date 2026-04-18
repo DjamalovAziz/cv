@@ -22,6 +22,7 @@ interface ProfileFormData {
     repoUrl?: string;
     image?: string;
     tags: string;
+    userRole?: string;
     isFeatured: boolean;
   }
 
@@ -57,7 +58,7 @@ export default function AdminDashboard({
   const [experience, setExperience] = useState(initialExperience);
 
   const profileForm = useForm<ProfileFormData>({ defaultValues: initialProfile });
-  const projectForm = useForm<ProjectFormData>({ defaultValues: { tags: "", isFeatured: false, description: "" } });
+  const projectForm = useForm<ProjectFormData>({ defaultValues: { tags: "", isFeatured: false, description: "", userRole: "" } });
   const skillForm = useForm<SkillFormData>({ defaultValues: { category: "Technical" } });
   const experienceForm = useForm<ExperienceFormData>({ defaultValues: { isCurrent: false } });
 
@@ -337,6 +338,14 @@ export default function AdminDashboard({
                      />
                    </div>
                    <div>
+                     <label className="block text-sm mb-2">Your Role in this Project</label>
+                     <input
+                       {...projectForm.register("userRole")}
+                       placeholder="e.g., Frontend Developer, Project Manager, Architect"
+                       className="w-full px-4 py-2 bg-gray-900 border border-gray-800 rounded"
+                     />
+                   </div>
+                   <div>
                      <label className="block text-sm mb-2">
                        <input type="checkbox" {...projectForm.register("isFeatured")} className="mr-2" />
                        Featured
@@ -408,20 +417,27 @@ export default function AdminDashboard({
                   </button>
                 </form>
 
-                <div className="space-y-2">
-                  {skills.map((skill) => (
-                    <div
-                      key={skill.id}
-                      className="flex items-center justify-between p-4 bg-gray-900 border border-gray-800 rounded"
-                    >
-                      <span>{skill.name}</span>
-                      <button
-                        onClick={() => handleDeleteSkill(skill.id)}
-                        className="px-4 py-2 bg-red-600 rounded hover:bg-red-700 transition-colors"
-                      >
-                        Delete
-                      </button>
-                    </div>
+                 <div className="space-y-2">
+                   {projects.map((project) => (
+                     <div
+                       key={project.id}
+                       className="flex items-center justify-between p-4 bg-gray-900 border border-gray-800 rounded"
+                     >
+                       <div>
+                         <span className="font-medium">{project.title}</span>
+                         {project.userRole && (
+                           <span className="ml-3 text-sm text-gray-500">({project.userRole})</span>
+                         )}
+                       </div>
+                       <button
+                         onClick={() => handleDeleteProject(project.id)}
+                         className="px-4 py-2 bg-red-600 rounded hover:bg-red-700 transition-colors"
+                       >
+                         Delete
+                       </button>
+                     </div>
+                   ))}
+                 </div>
                   ))}
                 </div>
               </div>
