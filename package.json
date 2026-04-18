@@ -19,6 +19,7 @@
     "@trpc/next": "^10.45.4",
     "@trpc/react-query": "^10.45.4",
     "@trpc/server": "^10.45.4",
+    "@vercel/speed-insights": "^2.0.0",
     "clsx": "^2.1.0",
     "grammy": "^1.20.0",
     "lucide-react": "^0.330.0",
