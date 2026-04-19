@@ -12,20 +12,14 @@ enum Role {
   GUEST
 }
 
-enum AuthStatus {
-  PENDING
-  CONFIRMED
-  EXPIRED
-}
-
 model User {
   id           String        @id @default(cuid())
-  telegramId   String        @unique
-  role        Role          @default(GUEST)
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-  authRequests AuthRequest[]
-  profile    Profile?
+  username     String        @unique
+  password     String
+  role         Role          @default(GUEST)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  profile      Profile?
 }
 
 model Profile {
@@ -99,14 +93,3 @@ model Education {
   updatedAt  DateTime @updatedAt
 }
 
-model AuthRequest {
-  id        String     @id @default(cuid())
-  code      String
-  status    AuthStatus @default(PENDING)
-  userId    String
-  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  expiresAt DateTime
-  createdAt DateTime   @default(now())
-
-  @@index([userId, status])
-}

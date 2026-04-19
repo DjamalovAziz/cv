@@ -1,15 +1,19 @@
 import { PrismaClient, Role } from "@prisma/client";
+import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
 
 async function main() {
-  const telegramAdminId = process.env.TELEGRAM_ADMIN_IDS?.split(",")[0] || "123456789";
+  const username = process.env.ADMIN_USERNAME || "admin";
+  const password = process.env.ADMIN_PASSWORD || "admin123";
+  const hashedPassword = await bcrypt.hash(password, 10);
 
   const admin = await prisma.user.upsert({
-    where: { telegramId: telegramAdminId },
-    update: { role: Role.ADMIN },
+    where: { username },
+    update: { password: hashedPassword, role: Role.ADMIN },
     create: {
-      telegramId: telegramAdminId,
+      username,
+      password: hashedPassword,
       role: Role.ADMIN,
       profile: {
         create: {
@@ -20,7 +24,7 @@ async function main() {
     },
   });
 
-  console.log(`Admin created: ${admin.id} (telegramId: ${admin.telegramId})`);
+  console.log(`Admin created: ${admin.id} (username: ${admin.username})`);
 }
 
 main()
