@@ -1,12 +1,20 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/router";
 
 export default function Auth() {
   const router = useRouter();
+  const { mode: urlMode } = router.query;
   const [mode, setMode] = useState<"signin" | "signup">("signin");
+
+  useEffect(() => {
+    if (urlMode === "signup") {
+      setMode("signup");
+    }
+  }, [urlMode]);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -39,6 +47,12 @@ export default function Auth() {
     e.preventDefault();
     setLoading(true);
     setError("");
+
+    if (password !== confirmPassword) {
+      setError("Passwords do not match");
+      setLoading(false);
+      return;
+    }
 
     try {
       const res = await fetch("/api/auth/signup", {
@@ -142,6 +156,20 @@ export default function Auth() {
               required
             />
           </div>
+
+          {mode === "signup" && (
+            <div>
+              <label className="block text-sm mb-2">Confirm Password</label>
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                className="w-full px-4 py-3 bg-gray-900 border border-gray-800 rounded-lg"
+                placeholder="••••••••"
+                required={mode === "signup"}
+              />
+            </div>
+          )}
 
           {error && (
             <p className="text-red-500 text-sm">{error}</p>

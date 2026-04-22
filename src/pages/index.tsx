@@ -56,12 +56,20 @@ export default function Browse({
                   Dashboard
                 </Link>
               ) : (
-                <button
-                  onClick={() => signIn("credentials")}
-                  className="px-6 py-3 bg-blue-600 rounded-lg hover:bg-blue-700"
-                >
-                  Sign In
-                </button>
+                <>
+                  <Link
+                    href="/auth/signin"
+                    className="px-6 py-3 bg-gray-700 rounded-lg hover:bg-gray-600"
+                  >
+                    Sign In
+                  </Link>
+                  <Link
+                    href="/auth/signin?mode=signup"
+                    className="px-6 py-3 bg-blue-600 rounded-lg hover:bg-blue-700"
+                  >
+                    Sign Up
+                  </Link>
+                </>
               )}
             </div>
 

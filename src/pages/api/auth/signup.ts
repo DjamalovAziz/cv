@@ -6,16 +6,22 @@ import bcrypt from "bcryptjs";
 const SignupSchema = z.object({
   username: z.string().min(3).max(30).regex(/^[a-zA-Z0-9_]+$/, "Only letters, numbers and underscores"),
   password: z.string().min(6),
+  confirmPassword: z.string(),
   displayName: z.string().min(1),
+}).refine(data => data.password === data.confirmPassword, {
+  message: "Passwords do not match",
+  path: ["confirmPassword"],
 });
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const data = SignupSchema.parse(body);
+    const { username, password, displayName } = body;
+    
+    const validated = SignupSchema.parse({ username, password, confirmPassword: body.confirmPassword, displayName });
 
     const existingUser = await db.user.findUnique({
-      where: { username: data.username },
+      where: { username: validated.username },
     });
 
     if (existingUser) {
@@ -25,11 +31,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const hashedPassword = await bcrypt.hash(data.password, 10);
+    const hashedPassword = await bcrypt.hash(validated.password, 10);
 
     const user = await db.user.create({
       data: {
-        username: data.username,
+        username: validated.username,
         password: hashedPassword,
         role: "USER",
       },
@@ -37,8 +43,8 @@ export async function POST(request: NextRequest) {
 
     await db.portfolio.create({
       data: {
-        username: data.username,
-        displayName: data.displayName,
+        username: validated.username,
+        displayName: validated.displayName,
         userId: user.id,
       },
     });
