@@ -9,87 +9,77 @@ datasource db {
 
 enum Role {
   ADMIN
-  GUEST
+  USER
+}
+
+enum FieldType {
+  TEXT
+  IMAGE
+  URL
+}
+
+enum VerificationStatus {
+  NONE
+  PENDING
+  VERIFIED
 }
 
 model User {
-  id           String        @id @default(cuid())
-  username     String        @unique
-  password     String
-  role         Role          @default(GUEST)
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  profile      Profile?
+  id                String              @id @default(cuid())
+  username          String              @unique
+  password          String
+  telegramId        String?             @unique
+  telegramChatId     String?
+  verificationToken String?
+  verificationStatus VerificationStatus   @default(NONE)
+  role              Role               @default(USER)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  portfolio         Portfolio?
 }
 
-model Profile {
-  id        String   @id @default(cuid())
-  name      String
-  title     String?
-  bio       String?  @db.Text
-  avatar    String?
-  email     String?
-  github    String?
-  linkedin  String?
-  twitter   String?
-  phone     String?
-  location  String?
-  isVisible Boolean  @default(true)
-  userId    String   @unique
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+model Portfolio {
+  id          String    @id @default(cuid())
+  username    String    @unique
+  displayName String
+  title       String?
+  bio         String?   @db.Text
+  avatar      String?
+  isPublic    Boolean   @default(true)
+  viewCount   Int       @default(0)
+  userId      String    @unique
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sections    Section[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([username])
 }
 
-model Project {
+model Section {
   id          String   @id @default(cuid())
   title       String
-  description String?  @db.Text
-  url         String?
-  repoUrl     String?
-  image       String?
-  tags       String[]
-  userRole    String?  // Роль пользователя в этом проекте (например: "Frontend Developer", "Project Manager")
-  isFeatured Boolean  @default(false)
   sortOrder   Int      @default(0)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-}
-
-model Experience {
-  id          String   @id @default(cuid())
-  company     String
-  position    String
-  description String?  @db.Text
-  location    String?
-  startDate   DateTime
-  endDate     DateTime?
-  isCurrent   Boolean  @default(false)
-  sortOrder   Int      @default(0)
+  isVisible   Boolean  @default(true)
+  portfolioId String
+  portfolio   Portfolio @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+  fields      Field[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  @@index([portfolioId])
 }
 
-model Skill {
+model Field {
   id        String   @id @default(cuid())
   name      String
-  category  String
-  icon      String?
+  value     String?  @db.Text
+  type      FieldType @default(TEXT)
   sortOrder Int      @default(0)
+  sectionId String
+  section   Section  @relation(fields: [sectionId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-}
 
-model Education {
-  id          String   @id @default(cuid())
-  institution String
-  degree     String
-  field      String?
-  startDate  DateTime
-  endDate    DateTime?
-  isCurrent  Boolean  @default(false)
-  sortOrder  Int      @default(0)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  @@index([sectionId])
 }
-
