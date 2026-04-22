@@ -6,18 +6,17 @@ export default function Auth() {
   const router = useRouter();
   const { mode: urlMode } = router.query;
   const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     if (urlMode === "signup") {
       setMode("signup");
     }
   }, [urlMode]);
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [displayName, setDisplayName] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -58,7 +57,7 @@ export default function Auth() {
       const res = await fetch("/api/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password, displayName }),
+        body: JSON.stringify({ username, password, confirmPassword }),
       });
 
       const data = await res.json();
@@ -119,20 +118,6 @@ export default function Auth() {
         </div>
 
         <form onSubmit={mode === "signin" ? handleSignIn : handleSignUp} className="space-y-4">
-          {mode === "signup" && (
-            <div>
-              <label className="block text-sm mb-2">Display Name</label>
-              <input
-                type="text"
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                className="w-full px-4 py-3 bg-gray-900 border border-gray-800 rounded-lg"
-                placeholder="How should we call you?"
-                required={mode === "signup"}
-              />
-            </div>
-          )}
-
           <div>
             <label className="block text-sm mb-2">Username</label>
             <input

@@ -7,7 +7,6 @@ const SignupSchema = z.object({
   username: z.string().min(3).max(30).regex(/^[a-zA-Z0-9_]+$/, "Only letters, numbers and underscores"),
   password: z.string().min(6),
   confirmPassword: z.string(),
-  displayName: z.string().min(1),
 }).refine(data => data.password === data.confirmPassword, {
   message: "Passwords do not match",
   path: ["confirmPassword"],
@@ -16,9 +15,16 @@ const SignupSchema = z.object({
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { username, password, displayName } = body;
+    const { username, password, confirmPassword } = body;
     
-    const validated = SignupSchema.parse({ username, password, confirmPassword: body.confirmPassword, displayName });
+    if (!username || !password || !confirmPassword) {
+      return NextResponse.json(
+        { error: "All fields are required" },
+        { status: 400 }
+      );
+    }
+
+    const validated = SignupSchema.parse({ username, password, confirmPassword });
 
     const existingUser = await db.user.findUnique({
       where: { username: validated.username },
@@ -44,7 +50,7 @@ export async function POST(request: NextRequest) {
     await db.portfolio.create({
       data: {
         username: validated.username,
-        displayName: validated.displayName,
+        displayName: validated.username,
         userId: user.id,
       },
     });
