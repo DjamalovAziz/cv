@@ -2,71 +2,20 @@ import { type NextRequest, NextResponse } from "next/server";
 import { db } from "~/server/db";
 import { v4 as uuidv4 } from "uuid";
 import bcrypt from "bcryptjs";
-import nodemailer from "nodemailer";
-import {
-  rateLimit,
-  setPendingReg,
-  setCode,
-  deleteCode,
-  isRedisAvailable,
-} from "~/server/redis";
 
 function generateCode(): string {
   return Math.floor(1000 + Math.random() * 9000).toString();
-}
-
-async function sendEmailCode(email: string, code: string) {
-  const transporter = nodemailer.createTransport({
-    host: process.env.EMAIL_HOST,
-    port: parseInt(process.env.EMAIL_PORT || "587"),
-    secure: false,
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS,
-    },
-  });
-
-  await transporter.sendMail({
-    from: `"Portfolio" <${process.env.EMAIL_USER}>`,
-    to: email,
-    subject: "Your verification code",
-    html: `
-      <div style="font-family: sans-serif; max-width: 400px; margin: 0 auto;">
-        <h2>Verification Code</h2>
-        <p>Your code for registration:</p>
-        <div style="font-size: 32px; letter-spacing: 8px; font-weight: bold; padding: 20px; background: #f5f5f5; text-align: center;">
-          ${code}
-        </div>
-        <p style="color: #666; font-size: 12px;">This code expires in 5 minutes.</p>
-      </div>
-    `,
-  });
 }
 
 export async function POST(request: NextRequest) {
   const ip = request.headers.get("x-forwarded-for") || "unknown";
 
   try {
-    if (!(await isRedisAvailable())) {
-      return NextResponse.json(
-        { error: "Service temporarily unavailable" },
-        { status: 503 }
-      );
-    }
-
     const body = await request.json();
-    const { action, username, password, confirmPassword, email, method, code, pendingId } = body;
+    const { action, username, password, confirmPassword, code, pendingId } = body;
 
     if (action === "init") {
-      const isLimited = await rateLimit(ip, username || email || "unknown");
-      if (!isLimited) {
-        return NextResponse.json(
-          { error: "Too many requests. Please wait 60 seconds." },
-          { status: 429 }
-        );
-      }
-
-      if (!username || !password || !confirmPassword || !method) {
+      if (!username || !password || !confirmPassword) {
         return NextResponse.json(
           { error: "All fields are required" },
           { status: 400 }
@@ -80,9 +29,9 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      if (password.length < 8 || !/[a-zA-Z]/.test(password) || !/[0-9]/.test(password)) {
+      if (password.length < 8) {
         return NextResponse.json(
-          { error: "Password must be at least 8 characters with letters and numbers" },
+          { error: "Password must be at least 8 characters" },
           { status: 400 }
         );
       }
@@ -96,31 +45,24 @@ export async function POST(request: NextRequest) {
       }
 
       const passwordHash = await bcrypt.hash(password, 10);
-      const userId = uuidv4();
       const verificationCode = generateCode();
+      const tempId = uuidv4();
 
-      const pendingData = {
-        username,
-        passwordHash,
-        email: method === "email" ? email : undefined,
-        telegramChatId: method === "telegram" ? email : undefined,
-        method,
-      };
-
-      await setPendingReg(userId, pendingData);
-      await setCode(userId, verificationCode);
-
-      if (method === "email" && email) {
-        sendEmailCode(email, verificationCode).catch((err) => {
-          console.error("[SECURITY] Email send failed:", err);
-        });
-      }
+      await db.user.create({
+        data: {
+          id: tempId,
+          username,
+          password: passwordHash,
+          verificationToken: verificationCode,
+          verificationStatus: "PENDING",
+        },
+      });
 
       return NextResponse.json({
-        pendingId: userId,
+        pendingId: tempId,
         status: "pending",
         expiresIn: 900,
-        method,
+        method: "telegram",
       });
     }
 
@@ -132,55 +74,42 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const storedCode = await db.user.findUnique({
-        where: { username: pendingId },
+      const user = await db.user.findFirst({
+        where: {
+          id: pendingId,
+          verificationStatus: "PENDING",
+        },
       });
 
-      const redisCode = await new Promise<string | null>(async (resolve) => {
-        try {
-          const { getCode } = await import("~/server/redis");
-          resolve(await getCode(pendingId));
-        } catch {
-          resolve(null);
-        }
-      });
-
-      if (!redisCode || redisCode !== code) {
+      if (!user || user.verificationToken !== code) {
         return NextResponse.json(
           { error: "Invalid or expired code" },
           { status: 400 }
         );
       }
 
-      const { getPendingReg, deletePendingReg } = await import("~/server/redis");
-      const pendingData = await getPendingReg(pendingId);
-
-      if (!pendingData) {
-        return NextResponse.json(
-          { error: "Session expired. Please register again." },
-          { status: 400 }
-        );
-      }
-
-      const user = await db.user.create({
+      await db.user.update({
+        where: { id: user.id },
         data: {
-          username: pendingData.username,
-          password: pendingData.passwordHash,
-          email: pendingData.email,
-          telegramId: pendingData.telegramChatId,
+          verificationStatus: "VERIFIED",
+          verificationToken: null,
           isVerified: true,
         },
       });
 
-      await db.portfolio.create({
-        data: {
-          username: user.username,
-          displayName: user.username,
-          userId: user.id,
-        },
+      const portfolio = await db.portfolio.findUnique({
+        where: { userId: user.id },
       });
 
-      await deletePendingReg(pendingId);
+      if (!portfolio) {
+        await db.portfolio.create({
+          data: {
+            username: user.username,
+            displayName: user.username,
+            userId: user.id,
+          },
+        });
+      }
 
       return NextResponse.json({
         success: true,
@@ -196,33 +125,25 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const isLimited = await rateLimit(ip, pendingId);
-      if (!isLimited) {
-        return NextResponse.json(
-          { error: "Too many requests. Please wait 60 seconds." },
-          { status: 429 }
-        );
-      }
+      const user = await db.user.findFirst({
+        where: {
+          id: pendingId,
+          verificationStatus: "PENDING",
+        },
+      });
 
-      const { getPendingReg, setCode } = await import("~/server/redis");
-      const pendingData = await getPendingReg(pendingId);
-
-      if (!pendingData) {
+      if (!user) {
         return NextResponse.json(
           { error: "Session expired. Please register again." },
           { status: 400 }
         );
       }
 
-      await deleteCode(pendingId);
       const newCode = generateCode();
-      await setCode(pendingId, newCode);
-
-      if (pendingData.method === "email" && pendingData.email) {
-        sendEmailCode(pendingData.email, newCode).catch((err) => {
-          console.error("[SECURITY] Email resend failed:", err);
-        });
-      }
+      await db.user.update({
+        where: { id: user.id },
+        data: { verificationToken: newCode },
+      });
 
       return NextResponse.json({
         success: true,

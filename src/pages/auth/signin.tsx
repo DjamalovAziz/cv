@@ -12,8 +12,6 @@ export default function Auth() {
   const [step, setStep] = useState<1 | 2>(1);
   
   const [username, setUsername] = useState("");
-  const [email, setEmail] = useState("");
-  const [method, setMethod] = useState<"email" | "telegram">("telegram");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [code, setCode] = useState("");
@@ -31,7 +29,6 @@ export default function Auth() {
   const resetForm = () => {
     setStep(1);
     setUsername("");
-    setEmail("");
     setPassword("");
     setConfirmPassword("");
     setCode("");
@@ -58,8 +55,6 @@ export default function Auth() {
           username,
           password,
           confirmPassword,
-          email: method === "telegram" ? username : email,
-          method,
         }),
       });
 
@@ -73,14 +68,12 @@ export default function Auth() {
 
       setPendingId(data.pendingId);
       setStep(2);
-      setMessage("Code sent to your " + (method === "email" ? "email" : "Telegram bot"));
+      setMessage("Code sent to Telegram bot");
 
-      if (method === "telegram") {
-        window.open(`https://t.me/${TELEGRAM_BOT}?start=reg_${data.pendingId}`, "_blank");
-      }
+      window.open(`https://t.me/${TELEGRAM_BOT}?start=reg_${data.pendingId}`, "_blank");
       
       setLoading(false);
-    } catch {
+    } catch (err) {
       setError("Something went wrong");
       setLoading(false);
     }
@@ -121,7 +114,7 @@ export default function Auth() {
       } else {
         router.push("/dashboard");
       }
-    } catch {
+    } catch (err) {
       setError("Something went wrong");
     } finally {
       setLoading(false);
@@ -142,7 +135,6 @@ export default function Auth() {
     if (result?.error) {
       if (result.error.includes("VERIFICATION_REQUIRED")) {
         setError("Account not verified. Please verify first.");
-        router.push("/auth/signin?mode=signup");
       } else {
         setError("Invalid credentials");
       }
@@ -168,21 +160,15 @@ export default function Auth() {
 
       const data = await res.json();
 
-      if (data.pendingId) {
-        setPendingId(data.pendingId);
-        setMessage(data.message || "Code sent");
-        setStep(2);
+      setMessage("Code sent to your email or Telegram");
+      setStep(2);
 
-        if (data.method === "telegram") {
-          window.open(`https://t.me/${TELEGRAM_BOT}?start=reset_${data.pendingId}`, "_blank");
-        }
-      } else {
-        setMessage(data.message || "Check your email or Telegram for the code");
-        setStep(2);
+      if (data.pendingId) {
+        window.open(`https://t.me/${TELEGRAM_BOT}?start=reset_${data.pendingId}`, "_blank");
       }
       
       setLoading(false);
-    } catch {
+    } catch (err) {
       setError("Something went wrong");
       setLoading(false);
     }
@@ -198,7 +184,6 @@ export default function Auth() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "verify",
-          pendingId,
           code,
           newPassword: password,
           confirmPassword,
@@ -216,7 +201,7 @@ export default function Auth() {
       setMessage("Password updated! Please sign in.");
       setTab("signin");
       resetForm();
-    } catch {
+    } catch (err) {
       setError("Something went wrong");
     } finally {
       setLoading(false);
@@ -257,34 +242,6 @@ export default function Auth() {
                 required
               />
             </div>
-
-            {(tab === "signup" || tab === "forgot") && step === 1 && (
-              <div>
-                <label className="block text-sm mb-2">Verify via</label>
-                <select
-                  value={method}
-                  onChange={(e) => setMethod(e.target.value as "email" | "telegram")}
-                  className="w-full px-4 py-3 bg-gray-900 border border-gray-800 rounded-lg"
-                >
-                  <option value="telegram">Telegram Bot</option>
-                  <option value="email">Email</option>
-                </select>
-              </div>
-            )}
-
-            {tab === "signup" && method === "email" && (
-              <div>
-                <label className="block text-sm mb-2">Email</label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full px-4 py-3 bg-gray-900 border border-gray-800 rounded-lg"
-                  placeholder="email@example.com"
-                  required
-                />
-              </div>
-            )}
 
             {tab !== "forgot" && (
               <div>
