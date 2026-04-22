@@ -28,11 +28,14 @@ model User {
   id                String              @id @default(cuid())
   username          String              @unique
   password          String
+  email             String?             @unique
+  phone             String?
   telegramId        String?             @unique
   telegramChatId     String?
   verificationToken String?
   verificationStatus VerificationStatus   @default(NONE)
   role              Role               @default(USER)
+  isVerified        Boolean            @default(false)
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
   portfolio         Portfolio?

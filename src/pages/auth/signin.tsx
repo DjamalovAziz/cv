@@ -2,68 +2,109 @@ import { useState, useEffect } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/router";
 
+const TELEGRAM_BOT = "cv_azizbot";
+
 export default function Auth() {
   const router = useRouter();
   const { mode: urlMode } = router.query;
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  
+  const [tab, setTab] = useState<"signin" | "signup" | "forgot">("signin");
+  const [step, setStep] = useState<1 | 2>(1);
+  
   const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
+  const [method, setMethod] = useState<"email" | "telegram">("telegram");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [code, setCode] = useState("");
+  const [pendingId, setPendingId] = useState("");
+  
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
 
   useEffect(() => {
-    if (urlMode === "signup") {
-      setMode("signup");
-    }
+    if (urlMode === "signup") setTab("signup");
+    if (urlMode === "forgot") setTab("forgot");
   }, [urlMode]);
 
-  const handleSignIn = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
+  const resetForm = () => {
+    setStep(1);
+    setUsername("");
+    setEmail("");
+    setPassword("");
+    setConfirmPassword("");
+    setCode("");
+    setPendingId("");
     setError("");
-
-    try {
-      const result = await signIn("credentials", {
-        username,
-        password,
-        redirect: false,
-      });
-
-      if (result?.error) {
-        setError("Invalid username or password");
-      } else {
-        router.push("/dashboard");
-      }
-    } catch {
-      setError("Something went wrong");
-    } finally {
-      setLoading(false);
-    }
+    setMessage("");
   };
 
-  const handleSignUp = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleTabChange = (newTab: "signin" | "signup" | "forgot") => {
+    setTab(newTab);
+    resetForm();
+  };
+
+  const handleSignUpInit = async () => {
     setLoading(true);
     setError("");
-
-    if (password !== confirmPassword) {
-      setError("Passwords do not match");
-      setLoading(false);
-      return;
-    }
 
     try {
       const res = await fetch("/api/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password, confirmPassword }),
+        body: JSON.stringify({
+          action: "init",
+          username,
+          password,
+          confirmPassword,
+          email: method === "telegram" ? username : email,
+          method,
+        }),
       });
 
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data.error || "Registration failed");
+        setError(data.error || "Failed to start registration");
+        setLoading(false);
+        return;
+      }
+
+      setPendingId(data.pendingId);
+      setStep(2);
+      setMessage("Code sent to your " + (method === "email" ? "email" : "Telegram bot"));
+
+      if (method === "telegram") {
+        window.open(`https://t.me/${TELEGRAM_BOT}?start=reg_${data.pendingId}`, "_blank");
+      }
+      
+      setLoading(false);
+    } catch {
+      setError("Something went wrong");
+      setLoading(false);
+    }
+  };
+
+  const handleSignUpVerify = async () => {
+    setLoading(true);
+    setError("");
+
+    try {
+      const res = await fetch("/api/auth/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "verify",
+          pendingId,
+          code,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error || "Verification failed");
         setLoading(false);
         return;
       }
@@ -74,7 +115,107 @@ export default function Auth() {
         redirect: false,
       });
 
+      if (result?.error) {
+        setError("Registered! Please sign in.");
+        setTab("signin");
+      } else {
+        router.push("/dashboard");
+      }
+    } catch {
+      setError("Something went wrong");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSignIn = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+
+    const result = await signIn("credentials", {
+      username,
+      password,
+      redirect: false,
+    });
+
+    if (result?.error) {
+      if (result.error.includes("VERIFICATION_REQUIRED")) {
+        setError("Account not verified. Please verify first.");
+        router.push("/auth/signin?mode=signup");
+      } else {
+        setError("Invalid credentials");
+      }
+    } else {
       router.push("/dashboard");
+    }
+    setLoading(false);
+  };
+
+  const handleForgotRequest = async () => {
+    setLoading(true);
+    setError("");
+
+    try {
+      const res = await fetch("/api/auth/forgot", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "request",
+          username,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (data.pendingId) {
+        setPendingId(data.pendingId);
+        setMessage(data.message || "Code sent");
+        setStep(2);
+
+        if (data.method === "telegram") {
+          window.open(`https://t.me/${TELEGRAM_BOT}?start=reset_${data.pendingId}`, "_blank");
+        }
+      } else {
+        setMessage(data.message || "Check your email or Telegram for the code");
+        setStep(2);
+      }
+      
+      setLoading(false);
+    } catch {
+      setError("Something went wrong");
+      setLoading(false);
+    }
+  };
+
+  const handleForgotVerify = async () => {
+    setLoading(true);
+    setError("");
+
+    try {
+      const res = await fetch("/api/auth/forgot", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "verify",
+          pendingId,
+          code,
+          newPassword: password,
+          confirmPassword,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error || "Reset failed");
+        setLoading(false);
+        return;
+      }
+
+      setMessage("Password updated! Please sign in.");
+      setTab("signin");
+      resetForm();
     } catch {
       setError("Something went wrong");
     } finally {
@@ -87,89 +228,173 @@ export default function Auth() {
       <div className="w-full max-w-md space-y-6">
         <div className="text-center">
           <h1 className="text-2xl font-bold gradient-text">
-            {mode === "signin" ? "Welcome Back" : "Create Account"}
+            {tab === "signin" ? "Sign In" : tab === "signup" ? "Sign Up" : "Reset Password"}
           </h1>
-          <p className="text-gray-400 mt-2">
-            {mode === "signin" 
-              ? "Sign in to manage your portfolio" 
-              : "Register to create your portfolio"}
-          </p>
         </div>
 
         <div className="flex gap-2 bg-gray-900 p-1 rounded-lg">
-          <button
-            type="button"
-            onClick={() => setMode("signin")}
-            className={`flex-1 py-2 rounded-md transition-colors ${
-              mode === "signin" ? "bg-blue-600" : "text-gray-400"
-            }`}
-          >
+          <button onClick={() => handleTabChange("signin")} className={`flex-1 py-2 rounded-md ${tab === "signin" ? "bg-blue-600" : "text-gray-400"}`}>
             Sign In
           </button>
-          <button
-            type="button"
-            onClick={() => setMode("signup")}
-            className={`flex-1 py-2 rounded-md transition-colors ${
-              mode === "signup" ? "bg-blue-600" : "text-gray-400"
-            }`}
-          >
+          <button onClick={() => handleTabChange("signup")} className={`flex-1 py-2 rounded-md ${tab === "signup" ? "bg-blue-600" : "text-gray-400"}`}>
             Sign Up
+          </button>
+          <button onClick={() => handleTabChange("forgot")} className={`flex-1 py-2 rounded-md ${tab === "forgot" ? "bg-blue-600" : "text-gray-400"}`}>
+            Reset
           </button>
         </div>
 
-        <form onSubmit={mode === "signin" ? handleSignIn : handleSignUp} className="space-y-4">
-          <div>
-            <label className="block text-sm mb-2">Username</label>
-            <input
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              className="w-full px-4 py-3 bg-gray-900 border border-gray-800 rounded-lg"
-              placeholder="username"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm mb-2">Password</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-3 bg-gray-900 border border-gray-800 rounded-lg"
-              placeholder="••••••••"
-              required
-            />
-          </div>
-
-          {mode === "signup" && (
+        {step === 1 && (
+          <div className="space-y-4">
             <div>
-              <label className="block text-sm mb-2">Confirm Password</label>
+              <label className="block text-sm mb-2">Username</label>
               <input
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
                 className="w-full px-4 py-3 bg-gray-900 border border-gray-800 rounded-lg"
-                placeholder="••••••••"
-                required={mode === "signup"}
+                placeholder="username"
+                required
               />
             </div>
-          )}
 
-          {error && (
-            <p className="text-red-500 text-sm">{error}</p>
-          )}
+            {(tab === "signup" || tab === "forgot") && step === 1 && (
+              <div>
+                <label className="block text-sm mb-2">Verify via</label>
+                <select
+                  value={method}
+                  onChange={(e) => setMethod(e.target.value as "email" | "telegram")}
+                  className="w-full px-4 py-3 bg-gray-900 border border-gray-800 rounded-lg"
+                >
+                  <option value="telegram">Telegram Bot</option>
+                  <option value="email">Email</option>
+                </select>
+              </div>
+            )}
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full px-4 py-3 bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
-          >
-            {loading 
-              ? "Loading..." 
-              : mode === "signin" ? "Sign In" : "Create Account"}
-          </button>
-        </form>
+            {tab === "signup" && method === "email" && (
+              <div>
+                <label className="block text-sm mb-2">Email</label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full px-4 py-3 bg-gray-900 border border-gray-800 rounded-lg"
+                  placeholder="email@example.com"
+                  required
+                />
+              </div>
+            )}
+
+            {tab !== "forgot" && (
+              <div>
+                <label className="block text-sm mb-2">Password</label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full px-4 py-3 bg-gray-900 border border-gray-800 rounded-lg"
+                  placeholder="••••••••"
+                  required
+                />
+              </div>
+            )}
+
+            {tab === "signup" && (
+              <div>
+                <label className="block text-sm mb-2">Confirm Password</label>
+                <input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="w-full px-4 py-3 bg-gray-900 border border-gray-800 rounded-lg"
+                  placeholder="••••••••"
+                  required
+                />
+              </div>
+            )}
+
+            {error && <p className="text-red-500 text-sm">{error}</p>}
+            {message && <p className="text-green-500 text-sm">{message}</p>}
+
+            {tab === "signin" ? (
+              <button onClick={handleSignIn} disabled={loading} className="w-full px-4 py-3 bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50">
+                {loading ? "Loading..." : "Sign In"}
+              </button>
+            ) : tab === "signup" ? (
+              <button onClick={handleSignUpInit} disabled={loading} className="w-full px-4 py-3 bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50">
+                {loading ? "Loading..." : "Continue"}
+              </button>
+            ) : (
+              <button onClick={handleForgotRequest} disabled={loading} className="w-full px-4 py-3 bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50">
+                {loading ? "Loading..." : "Send Code"}
+              </button>
+            )}
+          </div>
+        )}
+
+        {step === 2 && (
+          <div className="space-y-4">
+            <div className="bg-green-900/30 border border-green-700 rounded-lg p-4 text-center">
+              <p className="text-green-400">{message}</p>
+            </div>
+
+            <div>
+              <label className="block text-sm mb-2">Verification Code</label>
+              <input
+                type="text"
+                value={code}
+                onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                maxLength={4}
+                className="w-full px-4 py-3 bg-gray-900 border border-gray-800 rounded-lg text-center text-2xl font-mono tracking-widest"
+                placeholder="0000"
+                required
+              />
+            </div>
+
+            {tab !== "forgot" && (
+              <div>
+                <label className="block text-sm mb-2">Password</label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full px-4 py-3 bg-gray-900 border border-gray-800 rounded-lg"
+                  placeholder="••••••••"
+                  required
+                />
+              </div>
+            )}
+
+            {tab !== "signin" && (
+              <div>
+                <label className="block text-sm mb-2">Confirm Password</label>
+                <input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="w-full px-4 py-3 bg-gray-900 border border-gray-800 rounded-lg"
+                  placeholder="••••••••"
+                  required
+                />
+              </div>
+            )}
+
+            {error && <p className="text-red-500 text-sm">{error}</p>}
+
+            <button 
+              onClick={tab === "signup" ? handleSignUpVerify : handleForgotVerify} 
+              disabled={loading} 
+              className="w-full px-4 py-3 bg-green-600 rounded-lg hover:bg-green-700 disabled:opacity-50"
+            >
+              {loading ? "Loading..." : tab === "signup" ? "Create Account" : "Reset Password"}
+            </button>
+
+            <button onClick={() => setStep(1)} className="w-full text-gray-400 text-sm hover:text-white">
+              ← Back
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

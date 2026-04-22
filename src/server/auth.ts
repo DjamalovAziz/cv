@@ -1,5 +1,5 @@
 import { type GetServerSidePropsContext } from "next";
-import { getServerSession, type DefaultSession, type NextAuthOptions } from "next-auth";
+import { getServerSession, type DefaultSession, type NextAuthOptions, type Account } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { db } from "~/server/db";
 import { type Role } from "@prisma/client";
@@ -15,8 +15,20 @@ declare module "next-auth" {
   }
 
   interface User {
+    id: string;
     username: string;
     role: Role;
+    isVerified: boolean;
+    password?: string;
+  }
+}
+
+declare module "next-auth/jwt" {
+  interface JWT {
+    id: string;
+    username: string;
+    role: Role;
+    isVerified: boolean;
   }
 }
 
@@ -29,39 +41,51 @@ export const authOptions: NextAuthOptions = {
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        if (!credentials?.username || !credentials?.password) return null;
+        if (!credentials?.username || !credentials?.password) {
+          throw new Error("VERIFICATION_REQUIRED");
+        }
 
         const user = await db.user.findUnique({
           where: { username: credentials.username },
         });
 
-        if (!user) return null;
+        if (!user) {
+          throw new Error("INVALID_CREDENTIALS");
+        }
+
+        if (!user.isVerified) {
+          throw new Error("VERIFICATION_REQUIRED");
+        }
 
         const isValid = await bcrypt.compare(credentials.password, user.password);
-        if (!isValid) return null;
+        if (!isValid) {
+          throw new Error("INVALID_CREDENTIALS");
+        }
 
         return {
           id: user.id,
           name: user.username,
           username: user.username,
           role: user.role,
+          isVerified: user.isVerified,
         };
       },
     }),
   ],
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger, session }) {
       if (user) {
         token.id = user.id;
         token.username = user.username;
         token.role = user.role;
+        token.isVerified = user.isVerified;
       }
       return token;
     },
     async session({ session, token }) {
-      session.user.id = token.id as string;
-      session.user.username = token.username as string;
-      session.user.role = token.role as Role;
+      session.user.id = token.id;
+      session.user.username = token.username;
+      session.user.role = token.role;
       return session;
     },
   },
@@ -70,7 +94,7 @@ export const authOptions: NextAuthOptions = {
   },
   session: {
     strategy: "jwt",
-    maxAge: 30 * 24 * 60 * 60, // 30 days
+    maxAge: 30 * 24 * 60 * 60,
   },
 };
 
