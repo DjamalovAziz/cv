@@ -50,7 +50,7 @@ export default function PublicCV({ portfolio }: { portfolio: PortfolioData }) {
       <main className="min-h-screen bg-gray-50">
         <div className="max-w-4xl mx-auto px-4 py-12">
           <header className="text-center mb-12">
-            {portfolio.avatar && (
+            {portfolio.avatar && portfolio.avatar.startsWith("http") && (
               <img
                 src={portfolio.avatar}
                 alt={portfolio.displayName}

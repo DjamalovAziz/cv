@@ -49,6 +49,18 @@ export default function Dashboard({
     isPublic: portfolio?.isPublic ?? true,
   });
 
+  const handleSaveProfile = async () => {
+    try {
+      await fetch("/api/portfolio", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(profile),
+      });
+    } catch (err) {
+      console.error("Failed to save profile");
+    }
+  };
+
   return (
     <>
       <Head>
@@ -116,7 +128,7 @@ export default function Dashboard({
           {activeTab === "profile" && (
             <div className="bg-white rounded-lg shadow p-6">
               <h2 className="text-lg font-semibold mb-4">Profile Settings</h2>
-              <form className="space-y-4">
+              <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); handleSaveProfile(); }}>
                 <div>
                   <label className="block text-sm font-medium mb-1">Display Name</label>
                   <input
