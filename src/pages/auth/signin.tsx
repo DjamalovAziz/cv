@@ -2,8 +2,6 @@ import { useState, useEffect } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/router";
 
-const TELEGRAM_BOT = "cv_azizbot";
-
 export default function Auth() {
   const router = useRouter();
   const { mode: urlMode } = router.query;
@@ -12,10 +10,13 @@ export default function Auth() {
   const [step, setStep] = useState<1 | 2>(1);
   
   const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
+  const [verifyMethod, setVerifyMethod] = useState<"email" | "telegram">("telegram");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [code, setCode] = useState("");
   const [pendingId, setPendingId] = useState("");
+  const [displayCode, setDisplayCode] = useState("");
   
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -29,10 +30,12 @@ export default function Auth() {
   const resetForm = () => {
     setStep(1);
     setUsername("");
+    setEmail("");
     setPassword("");
     setConfirmPassword("");
     setCode("");
     setPendingId("");
+    setDisplayCode("");
     setError("");
     setMessage("");
   };
@@ -59,22 +62,22 @@ export default function Auth() {
       });
 
       const data = await res.json();
+      console.log("[SIGNUP] Response:", data);
 
       if (!res.ok) {
-        setError(data.error || "Failed to start registration");
+        setError(data.error || "Failed");
         setLoading(false);
         return;
       }
 
       setPendingId(data.pendingId);
+      setDisplayCode(data.code);
       setStep(2);
-      setMessage("Code sent to Telegram bot");
-
-      window.open(`https://t.me/${TELEGRAM_BOT}?start=reg_${data.pendingId}`, "_blank");
-      
+      setMessage(verifyMethod === "telegram" ? "Code sent to Telegram bot" : "Code sent to email");
       setLoading(false);
-    } catch (err) {
-      setError("Something went wrong");
+    } catch (err: any) {
+      console.error("[SIGNUP] Error:", err);
+      setError(err.message || "Error");
       setLoading(false);
     }
   };
@@ -95,6 +98,7 @@ export default function Auth() {
       });
 
       const data = await res.json();
+      console.log("[VERIFY] Response:", data);
 
       if (!res.ok) {
         setError(data.error || "Verification failed");
@@ -109,13 +113,14 @@ export default function Auth() {
       });
 
       if (result?.error) {
-        setError("Registered! Please sign in.");
+        setError("Registered! Sign in below.");
         setTab("signin");
       } else {
         router.push("/dashboard");
       }
-    } catch (err) {
-      setError("Something went wrong");
+    } catch (err: any) {
+      console.error("[VERIFY] Error:", err);
+      setError(err.message || "Error");
     } finally {
       setLoading(false);
     }
@@ -133,87 +138,23 @@ export default function Auth() {
     });
 
     if (result?.error) {
-      if (result.error.includes("VERIFICATION_REQUIRED")) {
-        setError("Account not verified. Please verify first.");
-      } else {
-        setError("Invalid credentials");
-      }
+      setError("Invalid credentials");
     } else {
       router.push("/dashboard");
     }
     setLoading(false);
   };
 
-  const handleForgotRequest = async () => {
-    setLoading(true);
-    setError("");
-
-    try {
-      const res = await fetch("/api/auth/forgot", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "request",
-          username,
-        }),
-      });
-
-      const data = await res.json();
-
-      setMessage("Code sent to your email or Telegram");
-      setStep(2);
-
-      if (data.pendingId) {
-        window.open(`https://t.me/${TELEGRAM_BOT}?start=reset_${data.pendingId}`, "_blank");
-      }
-      
-      setLoading(false);
-    } catch (err) {
-      setError("Something went wrong");
-      setLoading(false);
-    }
-  };
-
-  const handleForgotVerify = async () => {
-    setLoading(true);
-    setError("");
-
-    try {
-      const res = await fetch("/api/auth/forgot", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "verify",
-          code,
-          newPassword: password,
-          confirmPassword,
-        }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        setError(data.error || "Reset failed");
-        setLoading(false);
-        return;
-      }
-
-      setMessage("Password updated! Please sign in.");
-      setTab("signin");
-      resetForm();
-    } catch (err) {
-      setError("Something went wrong");
-    } finally {
-      setLoading(false);
-    }
+  const openTelegramBot = () => {
+    window.open("https://t.me/cv_azizbot?start=reg_" + pendingId, "_blank");
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4 py-12">
       <div className="w-full max-w-md space-y-6">
         <div className="text-center">
-          <h1 className="text-2xl font-bold gradient-text">
-            {tab === "signin" ? "Sign In" : tab === "signup" ? "Sign Up" : "Reset Password"}
+          <h1 className="text-2xl font-bold">
+            {tab === "signin" ? "Sign In" : tab === "signup" ? "Sign Up" : "Reset"}
           </h1>
         </div>
 
@@ -242,6 +183,44 @@ export default function Auth() {
                 required
               />
             </div>
+
+            {tab === "signup" && (
+              <>
+                <div>
+                  <label className="block text-sm mb-2">Verify via</label>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setVerifyMethod("telegram")}
+                      className={`flex-1 py-2 rounded-lg border ${verifyMethod === "telegram" ? "border-blue-600 bg-blue-600/20" : "border-gray-700"}`}
+                    >
+                      Telegram
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setVerifyMethod("email")}
+                      className={`flex-1 py-2 rounded-lg border ${verifyMethod === "email" ? "border-blue-600 bg-blue-600/20" : "border-gray-700"}`}
+                    >
+                      Email
+                    </button>
+                  </div>
+                </div>
+
+                {verifyMethod === "email" && (
+                  <div>
+                    <label className="block text-sm mb-2">Email</label>
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="w-full px-4 py-3 bg-gray-900 border border-gray-800 rounded-lg"
+                      placeholder="email@example.com"
+                      required
+                    />
+                  </div>
+                )}
+              </>
+            )}
 
             {tab !== "forgot" && (
               <div>
@@ -278,22 +257,27 @@ export default function Auth() {
               <button onClick={handleSignIn} disabled={loading} className="w-full px-4 py-3 bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50">
                 {loading ? "Loading..." : "Sign In"}
               </button>
-            ) : tab === "signup" ? (
+            ) : (
               <button onClick={handleSignUpInit} disabled={loading} className="w-full px-4 py-3 bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50">
                 {loading ? "Loading..." : "Continue"}
-              </button>
-            ) : (
-              <button onClick={handleForgotRequest} disabled={loading} className="w-full px-4 py-3 bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50">
-                {loading ? "Loading..." : "Send Code"}
               </button>
             )}
           </div>
         )}
 
-        {step === 2 && (
+        {step === 2 && tab === "signup" && (
           <div className="space-y-4">
             <div className="bg-green-900/30 border border-green-700 rounded-lg p-4 text-center">
-              <p className="text-green-400">{message}</p>
+              <p className="text-green-400 font-mono text-2xl">{displayCode}</p>
+              <p className="text-gray-400 text-sm mt-2">
+                {verifyMethod === "telegram" ? (
+                  <button type="button" onClick={openTelegramBot} className="text-blue-400 underline">
+                    Open Telegram Bot
+                  </button>
+                ) : (
+                  "Check your email"
+                )}
+              </p>
             </div>
 
             <div>
@@ -303,48 +287,16 @@ export default function Auth() {
                 value={code}
                 onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 4))}
                 maxLength={4}
-                className="w-full px-4 py-3 bg-gray-900 border border-gray-800 rounded-lg text-center text-2xl font-mono tracking-widest"
+                className="w-full px-4 py-3 bg-gray-900 border border-gray-800 rounded-lg text-center text-2xl font-mono"
                 placeholder="0000"
                 required
               />
             </div>
 
-            {tab !== "forgot" && (
-              <div>
-                <label className="block text-sm mb-2">Password</label>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-4 py-3 bg-gray-900 border border-gray-800 rounded-lg"
-                  placeholder="••••••••"
-                  required
-                />
-              </div>
-            )}
-
-            {tab !== "signin" && (
-              <div>
-                <label className="block text-sm mb-2">Confirm Password</label>
-                <input
-                  type="password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="w-full px-4 py-3 bg-gray-900 border border-gray-800 rounded-lg"
-                  placeholder="••••••••"
-                  required
-                />
-              </div>
-            )}
-
             {error && <p className="text-red-500 text-sm">{error}</p>}
 
-            <button 
-              onClick={tab === "signup" ? handleSignUpVerify : handleForgotVerify} 
-              disabled={loading} 
-              className="w-full px-4 py-3 bg-green-600 rounded-lg hover:bg-green-700 disabled:opacity-50"
-            >
-              {loading ? "Loading..." : tab === "signup" ? "Create Account" : "Reset Password"}
+            <button onClick={handleSignUpVerify} disabled={loading} className="w-full px-4 py-3 bg-green-600 rounded-lg hover:bg-green-700 disabled:opacity-50">
+              {loading ? "Loading..." : "Verify"}
             </button>
 
             <button onClick={() => setStep(1)} className="w-full text-gray-400 text-sm hover:text-white">

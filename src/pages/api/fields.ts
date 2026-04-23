@@ -7,6 +7,7 @@ const FieldSchema = z.object({
   name: z.string().min(1),
   value: z.string().optional(),
   type: z.enum(["TEXT", "IMAGE", "URL"]).optional(),
+  verificationMethod: z.enum(["NONE", "EMAIL", "TELEGRAM"]).optional(),
   sortOrder: z.number().optional(),
 });
 
@@ -57,6 +58,7 @@ export async function POST(request: NextRequest) {
       data: {
         ...data,
         type: data.type ?? "TEXT",
+        verificationMethod: data.verificationMethod ?? "NONE",
         sortOrder: data.sortOrder ?? ((maxOrder._max?.sortOrder ?? -1) + 1),
         sectionId,
       },

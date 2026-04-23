@@ -13,6 +13,7 @@ const FieldSchema = z.object({
   name: z.string().min(1),
   value: z.string().optional(),
   type: z.enum(["TEXT", "IMAGE", "URL"]).optional(),
+  verificationMethod: z.enum(["NONE", "EMAIL", "TELEGRAM"]).optional(),
   sortOrder: z.number().optional(),
 });
 

@@ -8,6 +8,7 @@ interface Field {
   name: string;
   value: string | null;
   type: string;
+  verificationMethod: string;
   sortOrder: number;
 }
 
@@ -164,6 +165,7 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
           fields: s.fields.map((f) => ({
             ...f,
             type: f.type as string,
+            verificationMethod: f.verificationMethod as string,
           })),
         })),
       },
